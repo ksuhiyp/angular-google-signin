@@ -1,4 +1,4 @@
-import {Component, AfterViewInit, ChangeDetectionStrategy, Input, Output, EventEmitter} from '@angular/core';
+import { Component, AfterViewInit, ChangeDetectionStrategy, Input, Output, EventEmitter } from '@angular/core';
 
 export class GoogleSignInSuccess {
   public googleUser: gapi.auth2.GoogleUser;
@@ -21,6 +21,13 @@ export class GoogleSignInComponent implements AfterViewInit {
 
   // Render options
   @Input() private scope: string;
+  // Api Key
+  @Input() private apiKey: string
+  // Client Id
+  @Input() private clientId: string
+  // Array of API discovery doc URLs for APIs used by the quickstart 
+  private discoveryDocs = ["https://www.googleapis.com/discovery/v1/apis/people/v1/rest"];
+
 
   private _width: number;
 
@@ -77,32 +84,42 @@ export class GoogleSignInComponent implements AfterViewInit {
   @Output() googleSignInFailure: EventEmitter<GoogleSignInFailure> = new EventEmitter<GoogleSignInFailure>();
 
   ngAfterViewInit() {
-    this.auth2Init();
+    this.libInit();
     this.renderButton();
   }
 
-  private auth2Init() {
+  private libInit() {
     if (this.clientId == null)
       throw new Error(
         'clientId property is necessary. (<google-signin [clientId]="..."></google-signin>)');
 
-    gapi.load('auth2', () => {
-      gapi.auth2.init({
-        client_id: this.clientId,
-        cookie_policy: this.cookiePolicy,
-        fetch_basic_profile: this._fetchBasicProfile,
-        hosted_domain: this.hostedDomain,
-        openid_realm: this.openidRealm
-      });
+    gapi.load('client:auth2', this.initClient)
+  }
+  private initClient() {
+    gapi.client.init({
+      apiKey: this.apiKey,
+      clientId: this.clientId,
+      hosted_domain: this.hostedDomain,
+      discoveryDocs: this.discoveryDocs,
+      scope: this.scope
+
     });
   }
-
   private handleFailure() {
     this.googleSignInFailure.next(new GoogleSignInFailure());
   }
 
   private handleSuccess(googleUser: gapi.auth2.GoogleUser) {
     this.googleSignInSuccess.next(new GoogleSignInSuccess(googleUser));
+    gapi.client.people.people.connections.list({
+      'resourceName': 'people/me',
+      'pageSize': 10,
+      'personFields': 'names,emailAddresses',
+    }).then(function (response) {
+      var connections = response.result.connections;
+      console.log(response)
+    });
+
   }
 
   private renderButton() {
